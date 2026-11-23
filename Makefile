@@ -377,6 +377,9 @@ install_lvms_operator: check-var-OPENSHIFT_VERSION ## Install LVM Storage Operat
 # Configure LVMCluster device class with thin provisioning (requires LVMS_DEVICES)
 .PHONY: configure_lvms_cluster
 configure_lvms_cluster: check-var-LVMS_DEVICES ## Configure LVMCluster device class
+	@echo "Note: LVMS_DEVICES must be wiped disks (no partitions/filesystems)."
+	@echo "To wipe a disk, get the node with 'oc get nodes', then run:"
+	@echo "  oc debug node/<node-name> -- chroot /host wipefs -a <disk>"
 	@bash scripts/configure_lvms_cluster.sh
 
 # ============================================================================
