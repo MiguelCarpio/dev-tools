@@ -58,6 +58,7 @@ LVMS_NAMESPACE ?= openshift-storage
 
 # MultiCluster Engine Configuration
 MCE_VERSION ?=
+HCP_CLIENT ?= $(shell which hcp 2>/dev/null || echo $(HOME)/bin/hcp)
 
 # GitOps Configuration
 GITOPS_REPO ?= https://github.com/openstack-k8s-operators/gitops.git
@@ -391,6 +392,33 @@ install_mce_operator: check-var-MCE_VERSION ## Install MultiCluster Engine Opera
 .PHONY: configure_mce
 configure_mce: ## Create MultiClusterEngine instance to use the operator
 	@bash scripts/configure_mce.sh
+
+# Install Hosted Control Plane CLI if it doesn't exist in $PATH
+.PHONY: ensure_hcp_client
+ensure_hcp_client:
+ifeq (,$(wildcard $(HCP_CLIENT)))
+	$(info Downloading the Hosted Control Plane CLI)
+	@HCP_URL=$$(oc get ConsoleCLIDownload hcp-cli-download -o jsonpath='{.spec.links[?(@.text=="Download hcp CLI for Linux for x86_64")].href}'); \
+	if [ -z "$$HCP_URL" ]; then \
+		echo "Error: Failed to get the hcp download URL" >&2; \
+		echo "Be sure that you are logged in to the cluster and the multicluster engine operator is installed (make install_mce_operator)" >&2; \
+		exit 1; \
+	fi; \
+	wget --no-check-certificate "$$HCP_URL" -O hcp.tar.gz || { \
+		echo "Error: Failed to download hcp.tar.gz from $$HCP_URL" >&2; \
+		exit 1; \
+	}
+	@TMP_DIR=$$(mktemp -d); \
+	tar -xzf hcp.tar.gz -C $$TMP_DIR; \
+	HCP_BIN=$$(find $$TMP_DIR -type f -name hcp | head -1); \
+	if [ -z "$$HCP_BIN" ]; then \
+		echo "Error: hcp binary not found in hcp.tar.gz" >&2; \
+		rm -rf $$TMP_DIR; \
+		exit 1; \
+	fi; \
+	install -m 755 $$HCP_BIN $(HOME)/bin/hcp; \
+	rm -rf $$TMP_DIR hcp.tar.gz
+endif
 
 # Configure LVMCluster device class with thin provisioning (requires LVMS_DEVICES)
 .PHONY: configure_lvms_cluster
