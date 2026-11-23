@@ -91,7 +91,6 @@ export BMC_CREDENTIALS_FILE="/path/to/idrac_access.yaml"
 # export SNO_VMEDIA_UEFI_PATH=""
 
 # Set core user password (post-install)
-# export SNO_CORE_PASSWORD="your_password"
 
 # Enable debug mode during installation
 # export SNO_LIVE_DEBUG="true"
