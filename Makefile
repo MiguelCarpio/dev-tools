@@ -387,6 +387,11 @@ install_lvms_operator: check-var-OPENSHIFT_VERSION ## Install LVM Storage Operat
 install_mce_operator: check-var-MCE_VERSION ## Install MultiCluster Engine Operator
 	@bash scripts/install_mce_operator.sh
 
+# Create MultiClusterEngine instance (hub cluster) required by the operator
+.PHONY: configure_mce
+configure_mce: ## Create MultiClusterEngine instance to use the operator
+	@bash scripts/configure_mce.sh
+
 # Configure LVMCluster device class with thin provisioning (requires LVMS_DEVICES)
 .PHONY: configure_lvms_cluster
 configure_lvms_cluster: check-var-LVMS_DEVICES ## Configure LVMCluster device class
