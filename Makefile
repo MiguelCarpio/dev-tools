@@ -32,7 +32,7 @@
 # User configuration variables (accept from environment only, no defaults)
 SNO_CLUSTER_NAME ?=
 SNO_BASE_DOMAIN ?=
-SNO_OPENSHIFT_VERSION ?=
+OPENSHIFT_VERSION ?=
 SNO_MACHINE_NETWORK ?=
 SNO_NODE_IP ?=
 SNO_NODE_IFACE ?=
@@ -52,10 +52,10 @@ PULL_SECRET ?=
 BMC_CREDENTIALS_FILE ?=
 
 # LVM Storage Configuration
-SNO_LVM_DEVICES ?=
-SNO_LVM_DEVICE_CLASS ?= openstack
-SNO_LVM_CLUSTER_NAME ?= lvmcluster
-SNO_LVM_NAMESPACE ?= openshift-storage
+LVMS_DEVICES ?=
+LVMS_DEVICE_CLASS ?= openstack
+LVMS_CLUSTER_NAME ?= lvmcluster
+LVMS_NAMESPACE ?= openshift-storage
 
 # GitOps Configuration
 GITOPS_REPO ?= https://github.com/openstack-k8s-operators/gitops.git
@@ -93,6 +93,9 @@ PLAYBOOK_DIR ?= $(OUTPUT_DIR)/playbooks
 check-var-%:
 	@if [ -z "$($(*))" ]; then \
 		echo "Error: $* is required but not set"; \
+		if [ "$*" = "OPENSHIFT_VERSION" ]; then \
+			echo "Hint: get the version from the running cluster with: oc get clusterversion"; \
+		fi; \
 		exit 1; \
 	fi
 
@@ -126,7 +129,7 @@ show_config: ## Display current configuration
 	@echo "=========================================="
 	@echo "* Cluster Name:        $(SNO_CLUSTER_NAME)"
 	@echo "* Base Domain:         $(SNO_BASE_DOMAIN)"
-	@echo "* OpenShift Version:   $(SNO_OPENSHIFT_VERSION)"
+	@echo "* OpenShift Version:   $(OPENSHIFT_VERSION)"
 	@echo ""
 	@echo "Node Configuration:"
 	@echo "  * IP Address:        $(SNO_NODE_IP)"
@@ -249,7 +252,7 @@ generate_vars_file:
 	@if [ -n "$(SNO_RELEASE_IMAGE)" ]; then \
 		echo "cifmw_bm_agent_release_image: $(SNO_RELEASE_IMAGE)" >> $(PLAYBOOK_DIR)/vars.yaml; \
 	else \
-		echo 'cifmw_bm_agent_openshift_version: "$(SNO_OPENSHIFT_VERSION)"' >> $(PLAYBOOK_DIR)/vars.yaml; \
+		echo 'cifmw_bm_agent_openshift_version: "$(OPENSHIFT_VERSION)"' >> $(PLAYBOOK_DIR)/vars.yaml; \
 	fi
 	@echo "" >> $(PLAYBOOK_DIR)/vars.yaml
 	@echo "# Network configuration" >> $(PLAYBOOK_DIR)/vars.yaml
@@ -371,14 +374,14 @@ show_kubeconfig: ## Display kubeconfig location and access instructions
 ##@ 3. Deploy RHOSO
 
 # Install LVM Storage Operator via OLM
-.PHONY: install_lvm_operator
-install_lvm_operator: check-var-SNO_OPENSHIFT_VERSION ## Install LVM Storage Operator
-	@bash scripts/install_lvm_operator.sh
+.PHONY: install_lvms_operator
+install_lvms_operator: check-var-OPENSHIFT_VERSION ## Install LVM Storage Operator
+	@bash scripts/install_lvms_operator.sh
 
-# Configure LVMCluster device class with thin provisioning (requires SNO_LVM_DEVICES)
-.PHONY: configure_lvm_cluster
-configure_lvm_cluster: check-var-SNO_LVM_DEVICES ## Configure LVMCluster device class
-	@bash scripts/configure_lvm_cluster.sh
+# Configure LVMCluster device class with thin provisioning (requires LVMS_DEVICES)
+.PHONY: configure_lvms_cluster
+configure_lvms_cluster: check-var-LVMS_DEVICES ## Configure LVMCluster device class
+	@bash scripts/configure_lvms_cluster.sh
 
 # ============================================================================
 # GITOPS OPERATOR
