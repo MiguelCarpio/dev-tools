@@ -56,6 +56,9 @@ LVMS_DEVICE_CLASS ?= openstack
 LVMS_CLUSTER_NAME ?= lvmcluster
 LVMS_NAMESPACE ?= openshift-storage
 
+# MultiCluster Engine Configuration
+MCE_VERSION ?=
+
 # GitOps Configuration
 GITOPS_REPO ?= https://github.com/openstack-k8s-operators/gitops.git
 GITOPS_DIR ?= out/gitops
@@ -93,7 +96,12 @@ check-var-%:
 	@if [ -z "$($(*))" ]; then \
 		echo "Error: $* is required but not set"; \
 		if [ "$*" = "OPENSHIFT_VERSION" ]; then \
-			echo "Hint: get the version from the running cluster with: oc get clusterversion"; \
+			echo "Hint: get the version from the running cluster with:"; \
+			echo "  oc get clusterversion"; \
+		fi; \
+		if [ "$*" = "MCE_VERSION" ]; then \
+			echo "Hint: list available versions with:"; \
+			echo "  oc get packagemanifest multicluster-engine -o jsonpath='{range .status.channels[*]}{.currentCSVDesc.version}{\"\\n\"}{end}' | cut -d. -f1-2"; \
 		fi; \
 		exit 1; \
 	fi
@@ -373,6 +381,11 @@ show_kubeconfig: ## Display kubeconfig location and access instructions
 .PHONY: install_lvms_operator
 install_lvms_operator: check-var-OPENSHIFT_VERSION ## Install LVM Storage Operator
 	@bash scripts/install_lvms_operator.sh
+
+# Install MultiCluster Engine Operator via OLM
+.PHONY: install_mce_operator
+install_mce_operator: check-var-MCE_VERSION ## Install MultiCluster Engine Operator
+	@bash scripts/install_mce_operator.sh
 
 # Configure LVMCluster device class with thin provisioning (requires LVMS_DEVICES)
 .PHONY: configure_lvms_cluster
