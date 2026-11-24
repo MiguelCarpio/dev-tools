@@ -383,16 +383,6 @@ show_kubeconfig: ## Display kubeconfig location and access instructions
 install_lvms_operator: check-var-OPENSHIFT_VERSION ## Install LVM Storage Operator
 	@bash scripts/install_lvms_operator.sh
 
-# Install MultiCluster Engine Operator via OLM
-.PHONY: install_mce_operator
-install_mce_operator: check-var-MCE_VERSION ## Install MultiCluster Engine Operator and create the MultiClusterEngine instance
-	@bash scripts/install_mce_operator.sh
-
-# Install OpenShift Virtualization Operator via OLM
-.PHONY: install_openshift_virtualization
-install_openshift_virtualization: ## Install OpenShift Virtualization Operator and create the HyperConverged instance
-	@bash scripts/install_openshift_virtualization.sh
-
 # Install Hosted Control Plane CLI if it doesn't exist in $PATH
 .PHONY: ensure_hcp_client
 ensure_hcp_client:
@@ -568,6 +558,18 @@ configure_eso_authentication: check-var-OPENSTACK_NAMESPACE clone_gitops_tools #
 		APPROLE_ROLE_ID=$$ROLE_ID \
 		APPROLE_SECRET_ID=$$SECRET_ID
 	@echo "✔ ESO SecretStore configured for namespace: $(OPENSTACK_NAMESPACE)"
+
+##@ 4. Deploy Hosted Control Planes
+
+# Install MultiCluster Engine Operator via OLM
+.PHONY: install_mce_operator
+install_mce_operator: check-var-MCE_VERSION ## Install MultiCluster Engine Operator and create the MultiClusterEngine instance
+	@bash scripts/install_mce_operator.sh
+
+# Install OpenShift Virtualization Operator via OLM
+.PHONY: install_openshift_virtualization
+install_openshift_virtualization: ## Install OpenShift Virtualization Operator and create the HyperConverged instance
+	@bash scripts/install_openshift_virtualization.sh
 
 # ============================================================================
 # UTILITY
