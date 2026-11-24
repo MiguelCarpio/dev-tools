@@ -393,6 +393,16 @@ install_mce_operator: check-var-MCE_VERSION ## Install MultiCluster Engine Opera
 configure_mce: ## Create MultiClusterEngine instance to use the operator
 	@bash scripts/configure_mce.sh
 
+# Install OpenShift Virtualization Operator via OLM
+.PHONY: install_openshift_virtualization
+install_openshift_virtualization: ## Install OpenShift Virtualization Operator
+	@bash scripts/install_openshift_virtualization.sh
+
+# Create HyperConverged instance required by the operator
+.PHONY: configure_openshift_virtualization
+configure_openshift_virtualization: ## Create HyperConverged instance to use the operator
+	@bash scripts/configure_openshift_virtualization.sh
+
 # Install Hosted Control Plane CLI if it doesn't exist in $PATH
 .PHONY: ensure_hcp_client
 ensure_hcp_client:
