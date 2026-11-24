@@ -24,8 +24,12 @@ echo "Devices: ${LVMS_DEVICES}"
 echo "StorageClass: lvms-${LVMS_DEVICE_CLASS}"
 
 if oc get lvmcluster ${LVMS_CLUSTER_NAME} -n ${LVMS_NAMESPACE} &>/dev/null; then
-    echo "LVMCluster already exists, adding deviceClass..."
-    PATCH=$(cat <<EOFPATCH
+    if oc get lvmcluster ${LVMS_CLUSTER_NAME} -n ${LVMS_NAMESPACE} \
+        -o jsonpath="{.spec.storage.deviceClasses[?(@.name=='${LVMS_DEVICE_CLASS}')]}" | grep -q .; then
+        echo "deviceClass ${LVMS_DEVICE_CLASS} already exists, nothing to add"
+    else
+        echo "LVMCluster already exists, adding deviceClass..."
+        PATCH=$(cat <<EOFPATCH
 [{
   "op": "add",
   "path": "/spec/storage/deviceClasses/-",
@@ -43,7 +47,8 @@ if oc get lvmcluster ${LVMS_CLUSTER_NAME} -n ${LVMS_NAMESPACE} &>/dev/null; then
 }]
 EOFPATCH
 )
-    oc patch lvmcluster ${LVMS_CLUSTER_NAME} -n ${LVMS_NAMESPACE} --type=json -p "${PATCH}"
+        oc patch lvmcluster ${LVMS_CLUSTER_NAME} -n ${LVMS_NAMESPACE} --type=json -p "${PATCH}"
+    fi
 else
     echo "Creating new LVMCluster..."
     cat << EOF | oc apply -f -
@@ -67,10 +72,15 @@ EOF
 fi
 
 echo "Waiting for LVMCluster to be ready..."
-until oc get lvmcluster ${LVMS_CLUSTER_NAME} -n ${LVMS_NAMESPACE} -o jsonpath='{.status.ready}' 2>/dev/null | grep -q true; do
-    echo "Waiting for LVMCluster to become ready..."
-    sleep 10
-done
+oc wait --for=jsonpath='{.status.ready}'=true lvmcluster/${LVMS_CLUSTER_NAME} -n ${LVMS_NAMESPACE} --timeout=600s
+
+echo "Waiting for StorageClass lvms-${LVMS_DEVICE_CLASS} to be created..."
+timeout 300s bash -c "
+    until oc get storageclass lvms-${LVMS_DEVICE_CLASS} &>/dev/null; do
+        sleep 10
+    done
+" || { echo "Error: StorageClass lvms-${LVMS_DEVICE_CLASS} was not created within 300s" >&2; \
+       exit 1; }
 
 echo "✔ LVMCluster ready with deviceClass: ${LVMS_DEVICE_CLASS}"
 echo ""

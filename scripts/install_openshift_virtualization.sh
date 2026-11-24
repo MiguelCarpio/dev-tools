@@ -39,13 +39,18 @@ spec:
   sourceNamespace: openshift-marketplace
 EOF
 
-echo "Waiting for OpenShift Virtualization Operator CSV to be created..."
-until oc get csv -n openshift-cnv -o name 2>/dev/null | grep -q .; do
-    echo "  Waiting for operator CSV..."
-    sleep 10
-done
+# Wait for the Subscription to resolve the operator CSV
+echo "Waiting for the OpenShift Virtualization Operator Subscription to resolve..."
+CSV_NAME=$(timeout 300s bash -c "
+    until oc get subscription hco-operatorhub -n openshift-cnv -o jsonpath='{.status.currentCSV}' 2>/dev/null | grep -q .; do
+        sleep 10
+    done
+    oc get subscription hco-operatorhub -n openshift-cnv -o jsonpath='{.status.currentCSV}'
+") || { echo "Error: Subscription hco-operatorhub did not resolve a CSV within 300s" >&2; \
+       echo "Subscription conditions:" >&2; \
+       oc get subscription hco-operatorhub -n openshift-cnv -o jsonpath='{.status.conditions}' >&2 || true; \
+       exit 1; }
 
-CSV_NAME=$(oc get csv -n openshift-cnv -o jsonpath='{.items[0].metadata.name}')
 echo "Waiting for OpenShift Virtualization Operator to be ready (CSV: ${CSV_NAME})..."
 oc wait --for=jsonpath='{.status.phase}'=Succeeded csv/${CSV_NAME} -n openshift-cnv --timeout=300s
 

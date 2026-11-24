@@ -413,10 +413,15 @@ ifeq (,$(wildcard $(HCP_CLIENT)))
 	HCP_BIN=$$(find $$TMP_DIR -type f -name hcp | head -1); \
 	if [ -z "$$HCP_BIN" ]; then \
 		echo "Error: hcp binary not found in hcp.tar.gz" >&2; \
-		rm -rf $$TMP_DIR; \
+		rm -rf $$TMP_DIR hcp.tar.gz; \
 		exit 1; \
 	fi; \
-	install -m 755 $$HCP_BIN $(HOME)/bin/hcp; \
+	mkdir -p $(dir $(HCP_CLIENT)); \
+	install -m 755 $$HCP_BIN $(HCP_CLIENT) || { \
+		echo "Error: Failed to install hcp to $(HCP_CLIENT)" >&2; \
+		rm -rf $$TMP_DIR hcp.tar.gz; \
+		exit 1; \
+	}; \
 	rm -rf $$TMP_DIR hcp.tar.gz
 endif
 
