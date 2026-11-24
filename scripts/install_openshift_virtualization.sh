@@ -50,3 +50,21 @@ echo "Waiting for OpenShift Virtualization Operator to be ready (CSV: ${CSV_NAME
 oc wait --for=jsonpath='{.status.phase}'=Succeeded csv/${CSV_NAME} -n openshift-cnv --timeout=300s
 
 echo "✔ OpenShift Virtualization Operator installed"
+
+# Create HyperConverged instance required by the operator
+echo "Creating HyperConverged instance..."
+
+cat << EOF | oc apply -f -
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+  namespace: openshift-cnv
+spec: {}
+EOF
+
+echo "Waiting for HyperConverged to be available..."
+oc wait --for=condition=Available hyperconverged/kubevirt-hyperconverged -n openshift-cnv --timeout=600s
+
+echo "✔ HyperConverged is available"
+echo "OpenShift Virtualization components are running in the openshift-cnv namespace"
