@@ -38,7 +38,7 @@ export SNO_NODE_IFACE="eno12399np0"            # RHCOS network interface name
 # Cluster Configuration
 export SNO_CLUSTER_NAME="ocp"                      # Cluster name
 export SNO_BASE_DOMAIN="example.com"               # Base domain for cluster FQDN
-export SNO_OPENSHIFT_VERSION="4.18.41"             # OpenShift version (full version required, e.g., 4.18.41)
+export OPENSHIFT_VERSION="4.18.41"             # OpenShift version (full version required, e.g., 4.18.41)
 
 # Network Configuration
 export SNO_MACHINE_NETWORK="192.168.10.0/24"
@@ -47,10 +47,10 @@ export SNO_MACHINE_NETWORK="192.168.10.0/24"
 export SNO_ROOT_DEVICE="/dev/sda"              # Or /dev/nvme0n1, etc.
 
 # LVM Storage Configuration
-# export SNO_LVM_DEVICES="/dev/sdb /dev/sdc"   # Disk(s) for LVM Storage (space-separated)
-# export SNO_LVM_DEVICE_CLASS="openstack"      # StorageClass name will be: lvms-openstack
-# export SNO_LVM_CLUSTER_NAME="lvmcluster"     # LVMCluster resource name
-# export SNO_LVM_NAMESPACE="openshift-storage" # LVMCluster namespace
+# export LVMS_DEVICES="/dev/sdb /dev/sdc"   # Disk(s) for LVM Storage (space-separated)
+# export LVMS_DEVICE_CLASS="openstack"      # StorageClass name will be: lvms-openstack
+# export LVMS_CLUSTER_NAME="lvmcluster"     # LVMCluster resource name
+# export LVMS_NAMESPACE="openshift-storage" # LVMCluster namespace
 
 # Secrets Paths
 export PULL_SECRET="/path/to/pull-secret"
@@ -91,7 +91,6 @@ export BMC_CREDENTIALS_FILE="/path/to/idrac_access.yaml"
 # export SNO_VMEDIA_UEFI_PATH=""
 
 # Set core user password (post-install)
-# export SNO_CORE_PASSWORD="your_password"
 
 # Enable debug mode during installation
 # export SNO_LIVE_DEBUG="true"
@@ -114,7 +113,7 @@ echo ""
 echo "Fields marked * are the minimum required to run 'make deploy_sno'."
 echo ""
 echo "Configuration summary:"
-echo "  * OpenShift Version:   ${SNO_OPENSHIFT_VERSION}"
+echo "  * OpenShift Version:   ${OPENSHIFT_VERSION}"
 echo "  * Cluster:             ${SNO_CLUSTER_NAME}.${SNO_BASE_DOMAIN}"
 echo "  * Machine Network:     ${SNO_MACHINE_NETWORK}"
 echo "  * Node IP:             ${SNO_NODE_IP}"

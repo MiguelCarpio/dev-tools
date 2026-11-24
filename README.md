@@ -32,8 +32,8 @@ make deploy_sno       # Deploy SNO cluster
 
 ```bash
 # Install prerequisites
-make install_lvm_operator              # Install LVM Storage Operator
-make configure_lvm_cluster             # Configure LVMCluster device class
+make install_lvms_operator              # Install LVM Storage Operator
+make configure_lvms_cluster             # Configure LVMCluster device class
 make install_gitops_operator           # OpenShift GitOps (ArgoCD)
 make enable_argocd                     # Enable ArgoCD with OpenStack health checks
 make configure_openshift_gitops        # Configure ArgoCD permissions and TLS
@@ -59,7 +59,7 @@ See `configs/sno.example.sh` for all available options.
 - `SNO_NODE_MAC` - Provisioning interface MAC address
 - `SNO_NODE_IP` - IP address for the node
 - `SNO_NODE_IFACE` - Network interface name
-- `SNO_OPENSHIFT_VERSION` - Full version (e.g., 4.18.41)
+- `OPENSHIFT_VERSION` - Full version (e.g., 4.18.41)
 
 **Vault credentials** are auto-fetched from Vault if `VAULT_BMC_SECRET_PATH` and `VAULT_APPROLE_PATH` are set.
 

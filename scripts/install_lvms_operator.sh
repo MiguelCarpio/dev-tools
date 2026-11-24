@@ -3,9 +3,9 @@
 set -e
 
 # Required environment variables:
-# - SNO_OPENSHIFT_VERSION: OpenShift version (e.g., 4.18.41)
+# - OPENSHIFT_VERSION: OpenShift version (e.g., 4.18.41)
 
-CHANNEL=$(echo "${SNO_OPENSHIFT_VERSION}" | cut -d. -f1-2)
+CHANNEL=$(echo "${OPENSHIFT_VERSION}" | cut -d. -f1-2)
 
 echo "Installing LVM Storage Operator..."
 echo "Channel: stable-${CHANNEL}"

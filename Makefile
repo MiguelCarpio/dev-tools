@@ -32,7 +32,7 @@
 # User configuration variables (accept from environment only, no defaults)
 SNO_CLUSTER_NAME ?=
 SNO_BASE_DOMAIN ?=
-SNO_OPENSHIFT_VERSION ?=
+OPENSHIFT_VERSION ?=
 SNO_MACHINE_NETWORK ?=
 SNO_NODE_IP ?=
 SNO_NODE_IFACE ?=
@@ -45,17 +45,20 @@ SNO_CONTROLLER_IP ?=
 SNO_INSTALLER_TIMEOUT ?=
 SNO_ENABLE_USB_BOOT ?=
 SNO_VMEDIA_UEFI_PATH ?=
-SNO_CORE_PASSWORD ?=
 SNO_LIVE_DEBUG ?=
 SNO_DISABLED_IFACES ?=
 PULL_SECRET ?=
 BMC_CREDENTIALS_FILE ?=
 
 # LVM Storage Configuration
-SNO_LVM_DEVICES ?=
-SNO_LVM_DEVICE_CLASS ?= openstack
-SNO_LVM_CLUSTER_NAME ?= lvmcluster
-SNO_LVM_NAMESPACE ?= openshift-storage
+LVMS_DEVICES ?=
+LVMS_DEVICE_CLASS ?= openstack
+LVMS_CLUSTER_NAME ?= lvmcluster
+LVMS_NAMESPACE ?= openshift-storage
+
+# MultiCluster Engine Configuration
+MCE_VERSION ?=
+HCP_CLIENT ?= $(shell which hcp 2>/dev/null || echo $(HOME)/bin/hcp)
 
 # GitOps Configuration
 GITOPS_REPO ?= https://github.com/openstack-k8s-operators/gitops.git
@@ -93,6 +96,14 @@ PLAYBOOK_DIR ?= $(OUTPUT_DIR)/playbooks
 check-var-%:
 	@if [ -z "$($(*))" ]; then \
 		echo "Error: $* is required but not set"; \
+		if [ "$*" = "OPENSHIFT_VERSION" ]; then \
+			echo "Hint: get the version from the running cluster with:"; \
+			echo "  oc get clusterversion"; \
+		fi; \
+		if [ "$*" = "MCE_VERSION" ]; then \
+			echo "Hint: list available versions with:"; \
+			echo "  oc get packagemanifest multicluster-engine -o jsonpath='{range .status.channels[*]}{.currentCSVDesc.version}{\"\\n\"}{end}' | cut -d. -f1-2"; \
+		fi; \
 		exit 1; \
 	fi
 
@@ -126,7 +137,7 @@ show_config: ## Display current configuration
 	@echo "=========================================="
 	@echo "* Cluster Name:        $(SNO_CLUSTER_NAME)"
 	@echo "* Base Domain:         $(SNO_BASE_DOMAIN)"
-	@echo "* OpenShift Version:   $(SNO_OPENSHIFT_VERSION)"
+	@echo "* OpenShift Version:   $(OPENSHIFT_VERSION)"
 	@echo ""
 	@echo "Node Configuration:"
 	@echo "  * IP Address:        $(SNO_NODE_IP)"
@@ -249,7 +260,7 @@ generate_vars_file:
 	@if [ -n "$(SNO_RELEASE_IMAGE)" ]; then \
 		echo "cifmw_bm_agent_release_image: $(SNO_RELEASE_IMAGE)" >> $(PLAYBOOK_DIR)/vars.yaml; \
 	else \
-		echo 'cifmw_bm_agent_openshift_version: "$(SNO_OPENSHIFT_VERSION)"' >> $(PLAYBOOK_DIR)/vars.yaml; \
+		echo 'cifmw_bm_agent_openshift_version: "$(OPENSHIFT_VERSION)"' >> $(PLAYBOOK_DIR)/vars.yaml; \
 	fi
 	@echo "" >> $(PLAYBOOK_DIR)/vars.yaml
 	@echo "# Network configuration" >> $(PLAYBOOK_DIR)/vars.yaml
@@ -288,9 +299,6 @@ generate_vars_file:
 	fi
 	@if [ -n "$(SNO_VMEDIA_UEFI_PATH)" ]; then \
 		echo "cifmw_bm_agent_vmedia_uefi_path: $(SNO_VMEDIA_UEFI_PATH)" >> $(PLAYBOOK_DIR)/vars.yaml; \
-	fi
-	@if [ -n "$(SNO_CORE_PASSWORD)" ]; then \
-		echo "cifmw_bm_agent_core_password: $(SNO_CORE_PASSWORD)" >> $(PLAYBOOK_DIR)/vars.yaml; \
 	fi
 	@if [ -n "$(SNO_DISABLED_IFACES)" ]; then \
 		echo "cifmw_bm_agent_disabled_ifaces: $(SNO_DISABLED_IFACES)" >> $(PLAYBOOK_DIR)/vars.yaml; \
@@ -371,14 +379,49 @@ show_kubeconfig: ## Display kubeconfig location and access instructions
 ##@ 3. Deploy RHOSO
 
 # Install LVM Storage Operator via OLM
-.PHONY: install_lvm_operator
-install_lvm_operator: check-var-SNO_OPENSHIFT_VERSION ## Install LVM Storage Operator
-	@bash scripts/install_lvm_operator.sh
+.PHONY: install_lvms_operator
+install_lvms_operator: check-var-OPENSHIFT_VERSION ## Install LVM Storage Operator
+	@bash scripts/install_lvms_operator.sh
 
-# Configure LVMCluster device class with thin provisioning (requires SNO_LVM_DEVICES)
-.PHONY: configure_lvm_cluster
-configure_lvm_cluster: check-var-SNO_LVM_DEVICES ## Configure LVMCluster device class
-	@bash scripts/configure_lvm_cluster.sh
+# Install Hosted Control Plane CLI if it doesn't exist in $PATH
+.PHONY: ensure_hcp_client
+ensure_hcp_client:
+ifeq (,$(wildcard $(HCP_CLIENT)))
+	$(info Downloading the Hosted Control Plane CLI)
+	@HCP_URL=$$(oc get ConsoleCLIDownload hcp-cli-download -o jsonpath='{.spec.links[?(@.text=="Download hcp CLI for Linux for x86_64")].href}'); \
+	if [ -z "$$HCP_URL" ]; then \
+		echo "Error: Failed to get the hcp download URL" >&2; \
+		echo "Be sure that you are logged in to the cluster and the multicluster engine operator is installed (make install_mce_operator)" >&2; \
+		exit 1; \
+	fi; \
+	wget --no-check-certificate "$$HCP_URL" -O hcp.tar.gz || { \
+		echo "Error: Failed to download hcp.tar.gz from $$HCP_URL" >&2; \
+		exit 1; \
+	}
+	@TMP_DIR=$$(mktemp -d); \
+	tar -xzf hcp.tar.gz -C $$TMP_DIR; \
+	HCP_BIN=$$(find $$TMP_DIR -type f -name hcp | head -1); \
+	if [ -z "$$HCP_BIN" ]; then \
+		echo "Error: hcp binary not found in hcp.tar.gz" >&2; \
+		rm -rf $$TMP_DIR hcp.tar.gz; \
+		exit 1; \
+	fi; \
+	mkdir -p $(dir $(HCP_CLIENT)); \
+	install -m 755 $$HCP_BIN $(HCP_CLIENT) || { \
+		echo "Error: Failed to install hcp to $(HCP_CLIENT)" >&2; \
+		rm -rf $$TMP_DIR hcp.tar.gz; \
+		exit 1; \
+	}; \
+	rm -rf $$TMP_DIR hcp.tar.gz
+endif
+
+# Configure LVMCluster device class with thin provisioning (requires LVMS_DEVICES)
+.PHONY: configure_lvms_cluster
+configure_lvms_cluster: check-var-LVMS_DEVICES ## Configure LVMCluster device class
+	@echo "Note: LVMS_DEVICES must be wiped disks (no partitions/filesystems)."
+	@echo "To wipe a disk, get the node with 'oc get nodes', then run:"
+	@echo "  oc debug node/<node-name> -- chroot /host wipefs -a <disk>"
+	@bash scripts/configure_lvms_cluster.sh
 
 # ============================================================================
 # GITOPS OPERATOR
@@ -515,6 +558,18 @@ configure_eso_authentication: check-var-OPENSTACK_NAMESPACE clone_gitops_tools #
 		APPROLE_ROLE_ID=$$ROLE_ID \
 		APPROLE_SECRET_ID=$$SECRET_ID
 	@echo "✔ ESO SecretStore configured for namespace: $(OPENSTACK_NAMESPACE)"
+
+##@ 4. Deploy Hosted Control Planes
+
+# Install MultiCluster Engine Operator via OLM
+.PHONY: install_mce_operator
+install_mce_operator: check-var-MCE_VERSION ## Install MultiCluster Engine Operator and create the MultiClusterEngine instance
+	@bash scripts/install_mce_operator.sh
+
+# Install OpenShift Virtualization Operator via OLM
+.PHONY: install_openshift_virtualization
+install_openshift_virtualization: ## Install OpenShift Virtualization Operator and create the HyperConverged instance
+	@bash scripts/install_openshift_virtualization.sh
 
 # ============================================================================
 # UTILITY

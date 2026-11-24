@@ -1,0 +1,85 @@
+#!/bin/bash
+
+set -e
+
+# Required environment variables:
+# - MCE_VERSION: MultiCluster Engine version (e.g., 2.5)
+#
+# Based on the Red Hat documented CLI procedure:
+# https://docs.redhat.com/en/documentation/red_hat_advanced_cluster_management_for_kubernetes/2.5/html-single/multicluster-engine/index#installing-from-the-cli
+
+CHANNEL=$(echo "${MCE_VERSION}" | cut -d. -f1-2)
+
+echo "Installing MultiCluster Engine Operator..."
+echo "Channel: stable-${CHANNEL}"
+
+# Create namespace (with cluster-monitoring label, per Red Hat docs)
+cat << EOF | oc apply -f -
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    openshift.io/cluster-monitoring: "true"
+  name: multicluster-engine
+EOF
+
+# Create OperatorGroup
+cat << EOF | oc apply -f -
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: multicluster-engine-operatorgroup
+  namespace: multicluster-engine
+spec:
+  targetNamespaces:
+  - multicluster-engine
+EOF
+
+# Create Subscription
+cat << EOF | oc apply -f -
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: multicluster-engine
+  namespace: multicluster-engine
+spec:
+  channel: stable-${CHANNEL}
+  installPlanApproval: Automatic
+  name: multicluster-engine
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+EOF
+
+# Wait for the Subscription to resolve the operator CSV
+echo "Waiting for the MultiCluster Engine Operator Subscription to resolve..."
+CSV_NAME=$(timeout 300s bash -c "
+    until oc get subscription multicluster-engine -n multicluster-engine -o jsonpath='{.status.currentCSV}' 2>/dev/null | grep -q .; do
+        sleep 10
+    done
+    oc get subscription multicluster-engine -n multicluster-engine -o jsonpath='{.status.currentCSV}'
+") || { echo "Error: Subscription multicluster-engine did not resolve a CSV within 300s" >&2; \
+       echo "Subscription conditions:" >&2; \
+       oc get subscription multicluster-engine -n multicluster-engine -o jsonpath='{.status.conditions}' >&2 || true; \
+       exit 1; }
+
+echo "Waiting for MultiCluster Engine Operator to be ready (CSV: ${CSV_NAME})..."
+oc wait --for=jsonpath='{.status.phase}'=Succeeded csv/${CSV_NAME} -n multicluster-engine --timeout=300s
+
+echo "✔ MultiCluster Engine Operator installed"
+
+# Create MultiClusterEngine instance (hub cluster) required by the operator
+echo "Creating MultiClusterEngine instance..."
+
+cat << EOF | oc apply -f -
+apiVersion: multicluster.openshift.io/v1
+kind: MultiClusterEngine
+metadata:
+  name: multicluster-engine
+spec: {}
+EOF
+
+echo "Waiting for MultiClusterEngine to be available..."
+oc wait --for=condition=Available multiclusterengine/multicluster-engine --timeout=600s
+
+echo "✔ MultiClusterEngine is available"
+echo "Hub cluster components (Hive, HyperShift, central infrastructure management) are running in the multicluster-engine namespace"
