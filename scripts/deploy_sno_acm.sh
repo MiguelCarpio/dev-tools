@@ -184,16 +184,34 @@ spec:
       agentSelector:
         matchLabels:
           agent-install.openshift.io/bmc-role: master
-  installStrategyRef:
+  clusterInstallRef:
     name: ${NS}
-  # required by the ClusterDeployment validation for agent-based installs;
-  # the actual provisioning configuration lives in the AgentClusterInstall
-  provisioning: {}
+    group: extensions.hive.openshift.io
+    version: v1beta1
+    kind: AgentClusterInstall
+  # no spec.provisioning: it is mutually exclusive with clusterInstallRef
+  # (the provisioning configuration lives in the AgentClusterInstall)
   pullSecretRef:
     name: assisted-pull-secret
 EOF
 
-# 8. BareMetalHost (boots the discovery ISO over Redfish)
+# 8. Metal3 Provisioning configuration (same as the rhoso-gitops-brq2 lab:
+# no dedicated provisioning network, virtual media via the external network,
+# BMHs watched in all namespaces)
+echo "Configuring metal3 Provisioning..."
+cat << EOF | oc apply -f -
+apiVersion: metal3.io/v1alpha1
+kind: Provisioning
+metadata:
+  name: provisioning-configuration
+  namespace: ${NS}
+spec:
+  provisioningNetwork: Disabled
+  virtualMediaViaExternalNetwork: true
+  watchAllNamespaces: true
+EOF
+
+# 9. BareMetalHost (boots the discovery ISO over the BMC virtual media)
 echo "Creating BareMetalHost..."
 cat << EOF | oc apply -f -
 apiVersion: metal3.io/v1alpha1
@@ -216,7 +234,7 @@ spec:
     deviceName: ${ROOT_DEVICE}
 EOF
 
-# 9. Wait for the installation to complete (Redfish boot + discovery + SNO
+# 10. Wait for the installation to complete (virtual media boot + discovery + SNO
 # install; this typically takes 30-60 minutes)
 echo "Waiting for the SNO installation to complete (this takes 30-60 minutes)..."
 echo "Progress can be followed with:"
@@ -226,13 +244,13 @@ oc wait --for=condition=Completed agentclusterinstall/${NS} -n "${NS}" --timeout
 
 echo "✔ SNO cluster ${NS} is installed"
 
-# 10. Label the ManagedCluster (ACM created and imported it during install)
+# 11. Label the ManagedCluster (ACM created and imported it during install)
 if [ -n "${SNO_LABELS}" ]; then
     echo "Labelling ManagedCluster: ${SNO_LABELS}"
     oc label managedcluster "${NS}" ${SNO_LABELS} --overwrite
 fi
 
-# 11. Manage the cluster endpoints in the workstation /etc/hosts (idempotent,
+# 12. Manage the cluster endpoints in the workstation /etc/hosts (idempotent,
 # marker-delimited block - same pattern as rhoso-rhoai). On SNO the API and
 # ingress records all point at the node IP.
 FQDN="${NS}.${SNO_BASE_DOMAIN}"
