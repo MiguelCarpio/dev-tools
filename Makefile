@@ -428,6 +428,7 @@ configure_lvms_cluster: check-var-LVMS_DEVICES ## Configure LVMCluster device cl
 	@echo "Note: LVMS_DEVICES must be wiped disks (no partitions/filesystems)."
 	@echo "To wipe a disk, get the node with 'oc get nodes', then run:"
 	@echo "  oc debug node/<node-name> -- chroot /host wipefs -a <disk>"
+	@echo "Note: every node must have at least one LVMS_DEVICES path that exists on it."
 	@bash scripts/configure_lvms_cluster.sh
 
 # ============================================================================
