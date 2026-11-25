@@ -52,6 +52,9 @@ export SNO_ROOT_DEVICE="/dev/sda"              # Or /dev/nvme0n1, etc.
 # export LVMS_CLUSTER_NAME="lvmcluster"     # LVMCluster resource name
 # export LVMS_NAMESPACE="openshift-storage" # LVMCluster namespace
 
+# Red Hat Advanced Cluster Management (ACM) Configuration
+# export ACM_VERSION="2.14"                 # ACM version (channel: release-2.14)
+
 # Secrets Paths
 export PULL_SECRET="/path/to/pull-secret"
 export BMC_CREDENTIALS_FILE="/path/to/idrac_access.yaml"

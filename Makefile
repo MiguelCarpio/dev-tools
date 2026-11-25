@@ -58,6 +58,9 @@ LVMS_NAMESPACE ?= openshift-storage
 
 # MultiCluster Engine Configuration
 MCE_VERSION ?=
+
+# Red Hat Advanced Cluster Management (ACM) Configuration
+ACM_VERSION ?=
 HCP_CLIENT ?= $(shell which hcp 2>/dev/null || echo $(HOME)/bin/hcp)
 
 # GitOps Configuration
@@ -103,6 +106,10 @@ check-var-%:
 		if [ "$*" = "MCE_VERSION" ]; then \
 			echo "Hint: list available versions with:"; \
 			echo "  oc get packagemanifest multicluster-engine -o jsonpath='{range .status.channels[*]}{.currentCSVDesc.version}{\"\\n\"}{end}' | cut -d. -f1-2"; \
+		fi; \
+		if [ "$*" = "ACM_VERSION" ]; then \
+			echo "Hint: list available versions with:"; \
+			echo "  oc get packagemanifest advanced-cluster-management -o jsonpath='{range .status.channels[*]}{.name}{\"\\n\"}{end}' | cut -d- -f2"; \
 		fi; \
 		exit 1; \
 	fi
@@ -559,12 +566,20 @@ configure_eso_authentication: check-var-OPENSTACK_NAMESPACE clone_gitops_tools #
 		APPROLE_SECRET_ID=$$SECRET_ID
 	@echo "✔ ESO SecretStore configured for namespace: $(OPENSTACK_NAMESPACE)"
 
-##@ 4. Deploy Hosted Control Planes
+##@ 4. Deploy Multicluster Management
 
 # Install MultiCluster Engine Operator via OLM
 .PHONY: install_mce_operator
 install_mce_operator: check-var-MCE_VERSION ## Install MultiCluster Engine Operator and create the MultiClusterEngine instance
 	@bash scripts/install_mce_operator.sh
+
+# Install Red Hat Advanced Cluster Management Operator via OLM
+# Note: the Multicluster Engine operator is installed automatically by the
+# ACM operator when the MultiClusterHub resource is created (per Red Hat docs);
+# use install_mce_operator instead if you only want standalone HCP/MCE.
+.PHONY: install_acm_operator
+install_acm_operator: check-var-ACM_VERSION ## Install Red Hat Advanced Cluster Management Operator and create the MultiClusterHub instance
+	@bash scripts/install_acm_operator.sh
 
 # Install OpenShift Virtualization Operator via OLM
 .PHONY: install_openshift_virtualization

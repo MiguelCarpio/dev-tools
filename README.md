@@ -50,6 +50,14 @@ make configure_eso_authentication      # ESO SecretStore with Vault AppRole auth
 make configure_vault_authentication    # Vault AppRole authentication
 ```
 
+### 4. Deploy Multicluster Management
+
+```bash
+make install_acm_operator ACM_VERSION=2.14   # Red Hat ACM hub cluster
+make install_mce_operator MCE_VERSION=2.9    # Multicluster Engine (standalone HCP)
+make install_openshift_virtualization        # OpenShift Virtualization
+```
+
 ## Configuration
 
 See `configs/sno.example.sh` for all available options.
