@@ -5,10 +5,8 @@ set -e
 # Required environment variables:
 # - ACM_VERSION: Red Hat Advanced Cluster Management version (e.g., 2.14)
 #
-# Optional environment variables:
-# - ACM_AVAILABILITY_CONFIG: hub availability, Basic (1 replica) or High
-#   (2 replicas). Default: auto-detected from the cluster topology
-#   (single-node OpenShift -> Basic, multi-node -> High)
+# The hub availability config (Basic/High) is auto-detected from the
+# cluster topology: single-node OpenShift -> Basic, multi-node -> High.
 #
 # Based on the Red Hat documented CLI procedure (Installing from the
 # OpenShift Container Platform CLI). Note that the Multicluster Engine
@@ -20,18 +18,16 @@ set -e
 
 CHANNEL=$(echo "${ACM_VERSION}" | cut -d. -f1-2)
 
-# Resolve hub availability config: Basic (1 replica) or High (2 replicas).
-# Auto-detect from cluster topology unless ACM_AVAILABILITY_CONFIG is set.
-if [ -z "${ACM_AVAILABILITY_CONFIG}" ]; then
-    NODES=$(oc get nodes --no-headers) || { echo "Error: failed to query cluster nodes" >&2; exit 1; }
-    NODE_COUNT=$(echo "${NODES}" | wc -l)
-    if [ "${NODE_COUNT}" -le 1 ]; then
-        ACM_AVAILABILITY_CONFIG=Basic
-    else
-        ACM_AVAILABILITY_CONFIG=High
-    fi
-    echo "Auto-detected availability config: ${ACM_AVAILABILITY_CONFIG} (${NODE_COUNT} node(s))"
+# Resolve hub availability config from the cluster topology:
+# Basic (1 replica) for single-node OpenShift, High (2 replicas) otherwise
+NODES=$(oc get nodes --no-headers) || { echo "Error: failed to query cluster nodes" >&2; exit 1; }
+NODE_COUNT=$(echo "${NODES}" | wc -l)
+if [ "${NODE_COUNT}" -le 1 ]; then
+    ACM_AVAILABILITY_CONFIG=Basic
+else
+    ACM_AVAILABILITY_CONFIG=High
 fi
+echo "Availability config: ${ACM_AVAILABILITY_CONFIG} (${NODE_COUNT} node(s))"
 
 echo "Installing Red Hat Advanced Cluster Management Operator..."
 echo "Channel: release-${CHANNEL}"
@@ -113,7 +109,7 @@ oc wait --for=jsonpath='{.status.phase}'=Running multiclusterhub/multiclusterhub
 
 echo "✔ MultiClusterHub is running"
 
-CONSOLE_URL=$(oc get route multicloud-console -n open-cluster-management -o jsonpath='{.spec.host}' 2>/dev/null || true)
+CONSOLE_URL=$(oc -n openshift-console get route console -o jsonpath='{.spec.host}' 2>/dev/null || true)
 if [ -n "${CONSOLE_URL}" ]; then
     echo "Console URL: https://${CONSOLE_URL}"
 fi
