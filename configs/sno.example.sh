@@ -55,6 +55,16 @@ export SNO_ROOT_DEVICE="/dev/sda"              # Or /dev/nvme0n1, etc.
 # Red Hat Advanced Cluster Management (ACM) Configuration
 # export ACM_VERSION="2.14"                 # ACM version (channel: release-2.14)
 
+# SNO deployment via ACM (make deploy_sno_acm) - additional variables
+# These are ONLY used by the SNO deployment via ACM; deploy_sno does not use them.
+# On SNO the node IP (SNO_NODE_IP) is also the API/ingress VIP, so static
+# networking is required (the full SNO_NODE_* block below).
+# export SNO_SSH_PUBKEY="$(cat ~/.ssh/id_ed25519.pub)"  # SSH public key (optional)
+# export SNO_LABELS="rhoso-version=19"                  # ManagedCluster labels (optional)
+# export SNO_NODE_PREFIX="24"                           # Prefix length
+# export SNO_NODE_GW="192.168.122.1"                    # Gateway
+# export SNO_NODE_DNS="192.168.122.1"                   # DNS server
+
 # Secrets Paths
 export PULL_SECRET="/path/to/pull-secret"
 export BMC_CREDENTIALS_FILE="/path/to/idrac_access.yaml"

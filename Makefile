@@ -47,6 +47,15 @@ SNO_ENABLE_USB_BOOT ?=
 SNO_VMEDIA_UEFI_PATH ?=
 SNO_LIVE_DEBUG ?=
 SNO_DISABLED_IFACES ?=
+
+# SNO variables below are ONLY used by the SNO deployment via ACM
+# (deploy_sno_acm); deploy_sno (bm_sno) does not use them
+SNO_SSH_PUBKEY ?=
+SNO_LABELS ?=
+SNO_NODE_PREFIX ?=
+SNO_NODE_GW ?=
+SNO_NODE_DNS ?=
+
 PULL_SECRET ?=
 BMC_CREDENTIALS_FILE ?=
 
@@ -581,6 +590,17 @@ install_mce_operator: check-var-MCE_VERSION ## Install MultiCluster Engine Opera
 .PHONY: install_acm_operator
 install_acm_operator: check-var-ACM_VERSION ## Install Red Hat Advanced Cluster Management Operator and create the MultiClusterHub instance
 	@bash scripts/install_acm_operator.sh
+
+# Provision a single-node OpenShift managed cluster via ACM (agent-based
+# installer on the hub). Requires the ACM hub (install_acm_operator).
+.PHONY: deploy_sno_acm
+deploy_sno_acm: check-var-SNO_CLUSTER_NAME check-var-SNO_BASE_DOMAIN check-var-SNO_BMC_HOST check-var-SNO_BMC_USERNAME check-var-SNO_BMC_PASSWORD check-var-SNO_NODE_MAC check-var-SNO_RELEASE_IMAGE check-var-SNO_NODE_IP check-var-SNO_NODE_PREFIX check-var-SNO_NODE_GW check-var-SNO_NODE_DNS check-var-SNO_NODE_IFACE ## Deploy a single-node OpenShift managed cluster via ACM
+	@echo "Note: the node's disk must be wiped (no partitions/filesystems)."
+	@echo "To wipe it, run:"
+	@echo "  oc debug node/<node-name> -- chroot /host wipefs -a <disk>"
+	@echo "Note: use a release image supported by the infrastructure operator"
+	@echo "(see the ACM support matrix)."
+	@bash scripts/deploy_sno_acm.sh
 
 # Install OpenShift Virtualization Operator via OLM
 .PHONY: install_openshift_virtualization
