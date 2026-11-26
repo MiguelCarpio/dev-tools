@@ -140,12 +140,14 @@ spec:
       requests:
         storage: 100Gi
     storageClassName: ${ACM_ASSISTED_STORAGE_CLASS}
+  # The image store pre-populates RHCOS live ISOs for every version and
+  # architecture in the OS image list (~1 GB each)
   imageStorage:
     accessModes:
     - ReadWriteOnce
     resources:
       requests:
-        storage: 10Gi
+        storage: 40Gi
     storageClassName: ${ACM_ASSISTED_STORAGE_CLASS}
 EOF
 
