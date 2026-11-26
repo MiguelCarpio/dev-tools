@@ -150,11 +150,9 @@ spec:
 EOF
 
 echo "Waiting for the Assisted Installer service to be deployed..."
-# The deployment does not exist until the infrastructure-operator has
-# reconciled the AgentServiceConfig (including binding its PVCs), so wait
-# for its creation before waiting for availability
-oc wait --for=create deployment/assisted-service -n assisted-installer --timeout=600s
-oc wait --for=condition=Available deployment/assisted-service -n assisted-installer --timeout=600s
+# The infrastructure-operator publishes the health of the assisted
+# deployments on the AgentServiceConfig conditions
+oc wait --for=condition=DeploymentsHealthy agentserviceconfig/agent --timeout=1200s
 
 echo "✔ Central infrastructure management service is running"
 
