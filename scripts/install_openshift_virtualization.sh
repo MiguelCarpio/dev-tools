@@ -42,13 +42,13 @@ EOF
 # Wait for the Subscription to resolve the operator CSV
 echo "Waiting for the OpenShift Virtualization Operator Subscription to resolve..."
 CSV_NAME=$(timeout 300s bash -c "
-    until oc get subscription hco-operatorhub -n openshift-cnv -o jsonpath='{.status.currentCSV}' 2>/dev/null | grep -q .; do
+    until oc get subscription.operators.coreos.com hco-operatorhub -n openshift-cnv -o jsonpath='{.status.currentCSV}' 2>/dev/null | grep -q .; do
         sleep 10
     done
-    oc get subscription hco-operatorhub -n openshift-cnv -o jsonpath='{.status.currentCSV}'
+    oc get subscription.operators.coreos.com hco-operatorhub -n openshift-cnv -o jsonpath='{.status.currentCSV}'
 ") || { echo "Error: Subscription hco-operatorhub did not resolve a CSV within 300s" >&2; \
        echo "Subscription conditions:" >&2; \
-       oc get subscription hco-operatorhub -n openshift-cnv -o jsonpath='{.status.conditions}' >&2 || true; \
+       oc get subscription.operators.coreos.com hco-operatorhub -n openshift-cnv -o jsonpath='{.status.conditions}' >&2 || true; \
        exit 1; }
 
 echo "Waiting for OpenShift Virtualization Operator to be ready (CSV: ${CSV_NAME})..."

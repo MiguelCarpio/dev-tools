@@ -75,13 +75,13 @@ EOF
 # must belong to the requested channel (release-${CHANNEL}).
 echo "Waiting for the ACM Operator Subscription to resolve (channel: release-${CHANNEL})..."
 CSV_NAME=$(timeout 300s bash -c "
-    until oc get subscription acm-operator-subscription -n open-cluster-management -o jsonpath='{.status.currentCSV}' 2>/dev/null | grep -q \"\.v${CHANNEL}\.\"; do
+    until oc get subscription.operators.coreos.com acm-operator-subscription -n open-cluster-management -o jsonpath='{.status.currentCSV}' 2>/dev/null | grep -q \"\.v${CHANNEL}\.\"; do
         sleep 10
     done
-    oc get subscription acm-operator-subscription -n open-cluster-management -o jsonpath='{.status.currentCSV}'
+    oc get subscription.operators.coreos.com acm-operator-subscription -n open-cluster-management -o jsonpath='{.status.currentCSV}'
 ") || { echo "Error: Subscription acm-operator-subscription did not resolve a CSV for release-${CHANNEL} within 300s" >&2; \
        echo "Subscription conditions:" >&2; \
-       oc get subscription acm-operator-subscription -n open-cluster-management -o jsonpath='{.status.conditions}' >&2 || true; \
+       oc get subscription.operators.coreos.com acm-operator-subscription -n open-cluster-management -o jsonpath='{.status.conditions}' >&2 || true; \
        exit 1; }
 
 echo "Waiting for ACM Operator CSV to be created (CSV: ${CSV_NAME})..."
