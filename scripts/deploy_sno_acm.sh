@@ -238,8 +238,10 @@ EOF
 # install; this typically takes 30-60 minutes)
 echo "Waiting for the SNO installation to complete (this takes 30-60 minutes)..."
 echo "Progress can be followed with:"
+echo "  oc -n ${NS} get bmh ${NS} -w"
+echo "  oc -n ${NS} get infraenv ${NS} -o jsonpath='{.status.conditions}'"
 echo "  oc -n ${NS} get agents"
-echo "  oc -n ${NS} get clusterdeployment ${NS} -o jsonpath='{.status.conditions}'"
+echo "  oc -n ${NS} get agentclusterinstall ${NS} -o jsonpath='{.status.conditions}'"
 oc wait --for=condition=Completed agentclusterinstall/${NS} -n "${NS}" --timeout=3600s
 
 echo "✔ SNO cluster ${NS} is installed"
