@@ -4,6 +4,8 @@ set -e
 
 # Required environment variables:
 # - ACM_VERSION: Red Hat Advanced Cluster Management version (e.g., 2.14)
+# - ACM_ASSISTED_STORAGE_CLASS: StorageClass for the assisted-service PVCs
+#   (e.g. lvms-openstack)
 #
 # The hub availability config (Basic/High) is auto-detected from the
 # cluster topology: single-node OpenShift -> Basic, multi-node -> High.
@@ -108,6 +110,49 @@ echo "multicluster engine operator and creates the MultiClusterEngine)..."
 oc wait --for=jsonpath='{.status.phase}'=Running multiclusterhub/multiclusterhub -n open-cluster-management --timeout=900s
 
 echo "✔ MultiClusterHub is running"
+
+# Enable the central infrastructure management service (Assisted Installer).
+# The MultiClusterHub deploys this service automatically only when the hub
+# reports a bare-metal install platform. On hubs installed with the
+# Assisted Installer (agent platform) the AgentServiceConfig must be
+# applied explicitly, or the InfraEnv/AgentClusterInstall/BareMetalHost
+# chain never gets a status (BMH stuck in "inspecting").
+echo "Enabling the central infrastructure management service (AgentServiceConfig)..."
+
+cat << EOF | oc apply -f -
+apiVersion: agent-install.openshift.io/v1beta1
+kind: AgentServiceConfig
+metadata:
+  name: agent
+  namespace: multicluster-engine
+spec:
+  databaseStorage:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: 10Gi
+    storageClassName: ${ACM_ASSISTED_STORAGE_CLASS}
+  filesystemStorage:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: 100Gi
+    storageClassName: ${ACM_ASSISTED_STORAGE_CLASS}
+  imageStorage:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: 10Gi
+    storageClassName: ${ACM_ASSISTED_STORAGE_CLASS}
+EOF
+
+echo "Waiting for the Assisted Installer service to be deployed..."
+oc wait --for=condition=Available deployment/assisted-service -n assisted-installer --timeout=600s
+
+echo "✔ Central infrastructure management service is running"
 
 CONSOLE_URL=$(oc -n openshift-console get route console -o jsonpath='{.spec.host}' 2>/dev/null || true)
 if [ -n "${CONSOLE_URL}" ]; then

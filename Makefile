@@ -70,6 +70,7 @@ MCE_VERSION ?=
 
 # Red Hat Advanced Cluster Management (ACM) Configuration
 ACM_VERSION ?=
+ACM_ASSISTED_STORAGE_CLASS ?=
 HCP_CLIENT ?= $(shell which hcp 2>/dev/null || echo $(HOME)/bin/hcp)
 
 # GitOps Configuration
@@ -115,6 +116,10 @@ check-var-%:
 		if [ "$*" = "MCE_VERSION" ]; then \
 			echo "Hint: list available versions with:"; \
 			echo "  oc get packagemanifest multicluster-engine -o jsonpath='{range .status.channels[*]}{.currentCSVDesc.version}{\"\\n\"}{end}' | cut -d. -f1-2"; \
+		fi; \
+		if [ "$*" = "ACM_ASSISTED_STORAGE_CLASS" ]; then \
+			echo "Hint: list the available storage classes with:"; \
+			echo "  oc get storageclass"; \
 		fi; \
 		if [ "$*" = "ACM_VERSION" ]; then \
 			echo "Hint: list available versions with:"; \
@@ -588,7 +593,7 @@ install_mce_operator: check-var-MCE_VERSION ## Install MultiCluster Engine Opera
 # ACM operator when the MultiClusterHub resource is created (per Red Hat docs);
 # use install_mce_operator instead if you only want standalone HCP/MCE.
 .PHONY: install_acm_operator
-install_acm_operator: check-var-ACM_VERSION ## Install Red Hat Advanced Cluster Management Operator and create the MultiClusterHub instance
+install_acm_operator: check-var-ACM_VERSION check-var-ACM_ASSISTED_STORAGE_CLASS ## Install Red Hat Advanced Cluster Management Operator and create the MultiClusterHub instance
 	@bash scripts/install_acm_operator.sh
 
 # Provision a single-node OpenShift managed cluster via ACM (agent-based
