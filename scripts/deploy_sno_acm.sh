@@ -390,10 +390,12 @@ fi
 # and SNO install)
 echo "Waiting for the SNO installation to complete (timeout: ${INSTALL_TIMEOUT})..."
 echo "Progress can be followed with:"
+echo "  oc -n ${NS} get preprovisioningimage ${NS}"
+echo "  oc -n ${NS} get agentclusterinstall ${NS}"
+echo "  oc -n ${NS} get clusterdeployment ${NS}"
 echo "  oc -n ${NS} get bmh ${NS} -w"
-echo "  oc -n ${NS} get infraenv ${NS} -o jsonpath='{.status.conditions}'"
 echo "  oc -n ${NS} get agents"
-echo "  oc -n ${NS} get agentclusterinstall ${NS} -o jsonpath='{.status.conditions}'"
+echo "  oc get managedcluster ${NS}"
 oc wait --for=condition=Completed agentclusterinstall/${NS} -n "${NS}" --timeout=${INSTALL_TIMEOUT}
 
 echo "✔ SNO cluster ${NS} is installed"
