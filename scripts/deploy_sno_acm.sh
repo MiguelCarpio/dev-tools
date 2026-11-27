@@ -419,7 +419,7 @@ spec:
 EOF
 fi
 
-oc wait --for=condition=Joined managedcluster/${NS} --timeout=600s
+oc wait --for=condition=ManagedClusterJoined managedcluster/${NS} --timeout=600s
 
 # 14. Label the ManagedCluster (for ApplicationSet/Placement targeting)
 if [ -n "${SNO_LABELS}" ]; then
