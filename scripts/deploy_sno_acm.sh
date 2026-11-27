@@ -360,12 +360,29 @@ fi
 
 # Forward the cluster zone to the CoreDNS backend from the DNS CR (the
 # supported, operator-managed route: the operator renders the zone into the
-# Corefile itself and defends it)
+# Corefile itself and defends it). The patch must MERGE with the existing
+# servers entries: a merge patch replaces arrays, so patching with only
+# this cluster's entry would drop the zone forwards of every other
+# cluster on the hub.
 BACKEND_IP=$(oc -n "${NS}" get svc coredns-backend -o jsonpath='{.spec.clusterIP}')
 if ! oc get dns.operator.openshift.io default -o jsonpath='{.spec.servers}' | grep -q "\"${FQDN}\""; then
     echo "Forwarding zone ${FQDN} to the CoreDNS backend (${BACKEND_IP})"
-    oc patch dns.operator.openshift.io default --type merge \
-        -p "{\"spec\":{\"servers\":[{\"name\":\"${NS}\",\"zones\":[\"${FQDN}\"],\"forwardPlugin\":{\"upstreams\":[\"${BACKEND_IP}\"]}}]}}"
+    python3 - "${NS}" "${FQDN}" "${BACKEND_IP}" <<'PYEOF' > /tmp/dnscr-patch.json
+import json, subprocess, sys
+ns, fqdn, ip = sys.argv[1:4]
+dns = json.loads(subprocess.check_output(
+    ["oc", "get", "dns.operator.openshift.io", "default", "-o", "json"]))
+servers = dns.get("spec", {}).get("servers") or []
+if not any(fqdn in z for s in servers for z in s.get("zones", [])):
+    servers.append({
+        "name": ns,
+        "zones": [fqdn],
+        "forwardPlugin": {"upstreams": [ip]},
+    })
+print(json.dumps({"spec": {"servers": servers}}))
+PYEOF
+    oc patch dns.operator.openshift.io default --type merge --patch-file /tmp/dnscr-patch.json
+    rm -f /tmp/dnscr-patch.json
     oc -n openshift-dns rollout restart daemonset/dns-default
 fi
 

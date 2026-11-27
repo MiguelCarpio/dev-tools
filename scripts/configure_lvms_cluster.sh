@@ -2,7 +2,7 @@
 
 set -e
 
-# Required environment variables (no defaults; see configs/sno.example.sh):
+# Required environment variables:
 # - LVMS_DEVICES: Space-separated list of devices (e.g., "/dev/sdb /dev/sdc")
 # - LVMS_DEVICE_CLASS_NAME: Device class name
 

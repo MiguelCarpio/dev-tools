@@ -46,7 +46,7 @@ export SNO_MACHINE_NETWORK="192.168.10.0/24"
 # Node Hardware
 export SNO_ROOT_DEVICE="/dev/sda"              # Or /dev/nvme0n1, etc.
 
-# LVM Storage Configuration (LVMS_DEVICES only needed for make configure_lvms_cluster)
+# LVM Storage Configuration
 # export LVMS_DEVICES="/dev/sdb /dev/sdc"   # Disk(s) for LVM Storage (space-separated)
 export LVMS_DEVICE_CLASS_NAME="openstack"        # StorageClass name will be: lvms-openstack
 
