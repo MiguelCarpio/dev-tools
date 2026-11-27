@@ -48,9 +48,7 @@ export SNO_ROOT_DEVICE="/dev/sda"              # Or /dev/nvme0n1, etc.
 
 # LVM Storage Configuration (LVMS_DEVICES only needed for make configure_lvms_cluster)
 # export LVMS_DEVICES="/dev/sdb /dev/sdc"   # Disk(s) for LVM Storage (space-separated)
-export LVMS_DEVICE_CLASS="openstack"        # StorageClass name will be: lvms-openstack
-export LVMS_CLUSTER_NAME="lvmcluster"       # LVMCluster resource name
-export LVMS_NAMESPACE="openshift-storage"   # LVMCluster namespace
+export LVMS_DEVICE_CLASS_NAME="openstack"        # StorageClass name will be: lvms-openstack
 
 # Red Hat Advanced Cluster Management (ACM) Configuration
 # export ACM_VERSION="2.14"                 # ACM version (channel: release-2.14)

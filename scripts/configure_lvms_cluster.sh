@@ -4,9 +4,7 @@ set -e
 
 # Required environment variables (no defaults; see configs/sno.example.sh):
 # - LVMS_DEVICES: Space-separated list of devices (e.g., "/dev/sdb /dev/sdc")
-# - LVMS_DEVICE_CLASS: Device class name
-# - LVMS_CLUSTER_NAME: LVMCluster resource name
-# - LVMS_NAMESPACE: LVMCluster namespace
+# - LVMS_DEVICE_CLASS_NAME: Device class name
 
 # Build deviceSelector optionalPaths YAML
 DEVICE_PATHS=""
@@ -17,17 +15,17 @@ done
 DEVICE_PATHS="${DEVICE_PATHS%
 }"
 
-echo "Creating/updating LVMCluster deviceClass: ${LVMS_DEVICE_CLASS}"
+echo "Creating/updating LVMCluster deviceClass: ${LVMS_DEVICE_CLASS_NAME}"
 echo "Devices: ${LVMS_DEVICES}"
-echo "StorageClass: lvms-${LVMS_DEVICE_CLASS}"
+echo "StorageClass: lvms-${LVMS_DEVICE_CLASS_NAME}"
 
-if oc get lvmcluster ${LVMS_CLUSTER_NAME} -n ${LVMS_NAMESPACE} &>/dev/null; then
-    if oc get lvmcluster ${LVMS_CLUSTER_NAME} -n ${LVMS_NAMESPACE} \
-        -o jsonpath="{.spec.storage.deviceClasses[?(@.name=='${LVMS_DEVICE_CLASS}')]}" | grep -q .; then
+if oc get lvmcluster lvmcluster -n openshift-storage &>/dev/null; then
+    if oc get lvmcluster lvmcluster -n openshift-storage \
+        -o jsonpath="{.spec.storage.deviceClasses[?(@.name=='${LVMS_DEVICE_CLASS_NAME}')]}" | grep -q .; then
         # deviceClass exists: merge LVMS_DEVICES into its optionalPaths
         # (union with the current devices, no duplicates)
-        CURRENT_PATHS=$(oc get lvmcluster ${LVMS_CLUSTER_NAME} -n ${LVMS_NAMESPACE} \
-            -o jsonpath="{range .spec.storage.deviceClasses[?(@.name=='${LVMS_DEVICE_CLASS}')].deviceSelector.optionalPaths[*]}{.}{\"\\n\"}{end}" \
+        CURRENT_PATHS=$(oc get lvmcluster lvmcluster -n openshift-storage \
+            -o jsonpath="{range .spec.storage.deviceClasses[?(@.name=='${LVMS_DEVICE_CLASS_NAME}')].deviceSelector.optionalPaths[*]}{.}{\"\\n\"}{end}" \
             | tr '\n' ' ')
         MERGED_PATHS=""
         for dev in ${CURRENT_PATHS} ${LVMS_DEVICES}; do
@@ -37,19 +35,19 @@ if oc get lvmcluster ${LVMS_CLUSTER_NAME} -n ${LVMS_NAMESPACE} &>/dev/null; then
             esac
         done
         if [ "$(echo ${CURRENT_PATHS})" = "${MERGED_PATHS}" ]; then
-            echo "deviceClass ${LVMS_DEVICE_CLASS}: devices already configured, nothing to change"
+            echo "deviceClass ${LVMS_DEVICE_CLASS_NAME}: devices already configured, nothing to change"
         else
         JSON_PATHS=$(echo ${MERGED_PATHS} | sed 's|[^ ]*|"&"|g' | sed 's| |, |g')
         # Resolve the deviceClass array index (it may not be the first entry)
-        DC_INDEX=$(oc get lvmcluster ${LVMS_CLUSTER_NAME} -n ${LVMS_NAMESPACE} \
+        DC_INDEX=$(oc get lvmcluster lvmcluster -n openshift-storage \
             -o jsonpath='{.spec.storage.deviceClasses[*].name}' | tr ' ' '\n' \
-            | grep -n "^${LVMS_DEVICE_CLASS}$" | head -1 | cut -d: -f1)
+            | grep -n "^${LVMS_DEVICE_CLASS_NAME}$" | head -1 | cut -d: -f1)
         if [ -z "${DC_INDEX}" ]; then
-            echo "Error: could not resolve index of deviceClass ${LVMS_DEVICE_CLASS}" >&2
+            echo "Error: could not resolve index of deviceClass ${LVMS_DEVICE_CLASS_NAME}" >&2
             exit 1
         fi
         DC_INDEX=$((DC_INDEX - 1))
-        echo "deviceClass ${LVMS_DEVICE_CLASS} already exists, updating devices: ${MERGED_PATHS}"
+        echo "deviceClass ${LVMS_DEVICE_CLASS_NAME} already exists, updating devices: ${MERGED_PATHS}"
         PATCH=$(cat <<EOFPATCH
 [{
   "op": "add",
@@ -58,7 +56,7 @@ if oc get lvmcluster ${LVMS_CLUSTER_NAME} -n ${LVMS_NAMESPACE} &>/dev/null; then
 }]
 EOFPATCH
 )
-        oc patch lvmcluster ${LVMS_CLUSTER_NAME} -n ${LVMS_NAMESPACE} --type=json -p "${PATCH}"
+        oc patch lvmcluster lvmcluster -n openshift-storage --type=json -p "${PATCH}"
         fi
     else
         echo "LVMCluster already exists, adding deviceClass..."
@@ -67,9 +65,9 @@ EOFPATCH
   "op": "add",
   "path": "/spec/storage/deviceClasses/-",
   "value": {
-    "name": "${LVMS_DEVICE_CLASS}",
+    "name": "${LVMS_DEVICE_CLASS_NAME}",
     "thinPoolConfig": {
-      "name": "thin-pool-${LVMS_DEVICE_CLASS}",
+      "name": "thin-pool-${LVMS_DEVICE_CLASS_NAME}",
       "sizePercent": 90,
       "overprovisionRatio": 10
     },
@@ -80,7 +78,7 @@ EOFPATCH
 }]
 EOFPATCH
 )
-        oc patch lvmcluster ${LVMS_CLUSTER_NAME} -n ${LVMS_NAMESPACE} --type=json -p "${PATCH}"
+        oc patch lvmcluster lvmcluster -n openshift-storage --type=json -p "${PATCH}"
     fi
 else
     echo "Creating new LVMCluster..."
@@ -88,14 +86,14 @@ else
 apiVersion: lvm.topolvm.io/v1alpha1
 kind: LVMCluster
 metadata:
-  name: ${LVMS_CLUSTER_NAME}
-  namespace: ${LVMS_NAMESPACE}
+  name: lvmcluster
+  namespace: openshift-storage
 spec:
   storage:
     deviceClasses:
-    - name: ${LVMS_DEVICE_CLASS}
+    - name: ${LVMS_DEVICE_CLASS_NAME}
       thinPoolConfig:
-        name: thin-pool-${LVMS_DEVICE_CLASS}
+        name: thin-pool-${LVMS_DEVICE_CLASS_NAME}
         sizePercent: 90
         overprovisionRatio: 10
       deviceSelector:
@@ -105,17 +103,17 @@ EOF
 fi
 
 echo "Waiting for LVMCluster to be ready..."
-oc wait --for=jsonpath='{.status.ready}'=true lvmcluster/${LVMS_CLUSTER_NAME} -n ${LVMS_NAMESPACE} --timeout=600s
+oc wait --for=jsonpath='{.status.ready}'=true lvmcluster/lvmcluster -n openshift-storage --timeout=600s
 
-echo "Waiting for StorageClass lvms-${LVMS_DEVICE_CLASS} to be created..."
+echo "Waiting for StorageClass lvms-${LVMS_DEVICE_CLASS_NAME} to be created..."
 timeout 300s bash -c "
-    until oc get storageclass lvms-${LVMS_DEVICE_CLASS} &>/dev/null; do
+    until oc get storageclass lvms-${LVMS_DEVICE_CLASS_NAME} &>/dev/null; do
         sleep 10
     done
-" || { echo "Error: StorageClass lvms-${LVMS_DEVICE_CLASS} was not created within 300s" >&2; \
+" || { echo "Error: StorageClass lvms-${LVMS_DEVICE_CLASS_NAME} was not created within 300s" >&2; \
        exit 1; }
 
-echo "✔ LVMCluster ready with deviceClass: ${LVMS_DEVICE_CLASS}"
+echo "✔ LVMCluster ready with deviceClass: ${LVMS_DEVICE_CLASS_NAME}"
 echo ""
-echo "StorageClass created: lvms-${LVMS_DEVICE_CLASS}"
-oc get storageclass lvms-${LVMS_DEVICE_CLASS}
+echo "StorageClass created: lvms-${LVMS_DEVICE_CLASS_NAME}"
+oc get storageclass lvms-${LVMS_DEVICE_CLASS_NAME}

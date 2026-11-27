@@ -70,9 +70,7 @@ endif
 
 # LVM Storage Configuration
 LVMS_DEVICES ?=
-LVMS_DEVICE_CLASS ?= openstack
-LVMS_CLUSTER_NAME ?= lvmcluster
-LVMS_NAMESPACE ?= openshift-storage
+LVMS_DEVICE_CLASS_NAME ?=
 
 # MultiCluster Engine Configuration
 MCE_VERSION ?=
@@ -451,7 +449,7 @@ endif
 
 # Configure LVMCluster device class with thin provisioning (requires LVMS_DEVICES)
 .PHONY: configure_lvms_cluster
-configure_lvms_cluster: check-var-LVMS_DEVICES check-var-LVMS_DEVICE_CLASS check-var-LVMS_CLUSTER_NAME check-var-LVMS_NAMESPACE ## Configure LVMCluster device class
+configure_lvms_cluster: check-var-LVMS_DEVICES check-var-LVMS_DEVICE_CLASS_NAME ## Configure LVMCluster device class
 	@echo "Note: LVMS_DEVICES must be wiped disks (no partitions/filesystems)."
 	@echo "To wipe a disk, get the node with 'oc get nodes', then run:"
 	@echo "  oc debug node/<node-name> -- chroot /host wipefs -a <disk>"
