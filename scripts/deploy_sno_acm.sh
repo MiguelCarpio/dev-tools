@@ -428,11 +428,8 @@ if [ -n "${SNO_LABELS}" ]; then
 fi
 
 echo ""
-echo "✔ Done. Cluster status:"
-echo "  oc -n ${NS} get clusterdeployment ${NS}"
-echo "  oc -n ${NS} get agents"
-echo "  oc get managedcluster ${NS}"
-echo "  oc get secrets -n ${NS} ${NS}-admin-kubeconfig"
+echo "✔ Done. Cluster access:"
+echo "  oc -n ${NS} get secret ${NS}-admin-kubeconfig -o jsonpath='{.data.kubeconfig}' | base64 -d > kubeconfig-${NS}"
 echo "Console and credentials:"
 echo "  oc -n ${NS} get secret ${NS}-admin-password -o jsonpath='{.data.username}' | base64 -d; echo"
 echo "  oc -n ${NS} get secret ${NS}-admin-password -o jsonpath='{.data.password}' | base64 -d; echo"
