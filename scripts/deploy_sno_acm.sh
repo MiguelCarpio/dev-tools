@@ -13,7 +13,9 @@ set -e
 # - SNO_BMC_USERNAME:  BMC username
 # - SNO_BMC_PASSWORD:  BMC password
 # - SNO_NODE_MAC:      MAC address of the provisioning interface
-# - SNO_RELEASE_IMAGE: OCP release image (e.g. quay.io/.../ocp-release:4.20.46-x86_64)
+# - SNO_RELEASE_IMAGE or OPENSHIFT_VERSION: the exact OCP release image
+#   (e.g. quay.io/.../ocp-release:4.20.46-x86_64), or a version number
+#   (e.g. 4.20.46) from which the release image is derived
 # - Static node networking (on SNO the node IP is also the API/ingress VIP,
 #   so the address must be known up front - DHCP is not supported):
 #   - SNO_NODE_IP / SNO_NODE_PREFIX / SNO_NODE_GW / SNO_NODE_DNS / SNO_NODE_IFACE
@@ -37,6 +39,11 @@ set -e
 NS="${SNO_CLUSTER_NAME}"
 ROOT_DEVICE="${SNO_ROOT_DEVICE:-/dev/sda}"
 
+# SNO_RELEASE_IMAGE takes precedence; derive it from OPENSHIFT_VERSION otherwise
+if [ -z "${SNO_RELEASE_IMAGE}" ] && [ -n "${OPENSHIFT_VERSION}" ]; then
+    SNO_RELEASE_IMAGE="quay.io/openshift-release-dev/ocp-release:${OPENSHIFT_VERSION}-x86_64"
+fi
+
 echo "Provisioning SNO cluster: ${NS}.${SNO_BASE_DOMAIN}"
 echo "Release image: ${SNO_RELEASE_IMAGE}"
 echo "BMC: ${SNO_BMC_HOST} (boot MAC: ${SNO_NODE_MAC})"
@@ -46,6 +53,87 @@ echo "Checking that the ACM hub (MultiClusterHub) is running..."
 oc wait --for=jsonpath='{.status.phase}'=Running multiclusterhub/multiclusterhub \
     -n open-cluster-management --timeout=10s \
     || { echo "Error: MultiClusterHub is not Running on this cluster (run 'make install_acm_operator' first)" >&2; exit 1; }
+
+# Precheck: the target OCP version must be in the assisted-service OS image
+# list. The defaults only cover the hub's version window; installing another
+# minor (e.g. 4.18 on a 4.20 hub) requires adding an osImages entry to the
+# AgentServiceConfig (documented in the InfraEnv field descriptions).
+# The effective list (defaults + AgentServiceConfig entries) is published in
+# the assisted-service configmap.
+TARGET_MINOR=$(echo "${SNO_RELEASE_IMAGE}" | sed -n 's/.*:\([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p')
+if [ -z "${TARGET_MINOR}" ]; then
+    echo "Error: could not extract the major.minor version from SNO_RELEASE_IMAGE (${SNO_RELEASE_IMAGE})" >&2
+    exit 1
+fi
+
+OS_IMAGES=$(oc get configmap assisted-service -n multicluster-engine -o jsonpath='{.data.OS_IMAGES}')
+if echo "${OS_IMAGES}" | grep -q "\"openshift_version\":\"${TARGET_MINOR}\""; then
+    echo "OCP ${TARGET_MINOR} is in the assisted OS image list"
+else
+    echo "OCP ${TARGET_MINOR} is not in the assisted OS image list; adding it"
+
+    # RHCOS build of the target release, from the release payload
+    PULL_SECRET_FILE=$(mktemp)
+    oc -n "${NS}" get secret assisted-pull-secret -o jsonpath='{.data.\.dockerconfigjson}' 2>/dev/null | base64 -d > "${PULL_SECRET_FILE}"
+    if [ ! -s "${PULL_SECRET_FILE}" ]; then
+        # the assisted-pull-secret is created later in this script on first
+        # run; fall back to the hub's global pull secret
+        oc extract secret/pull-secret -n openshift-config --confirm --to="${TMPDIR:-/tmp}" >/dev/null
+        mv "${TMPDIR:-/tmp}/.dockerconfigjson" "${PULL_SECRET_FILE}"
+    fi
+    RHCOS_VERSION=$(oc adm release info "${SNO_RELEASE_IMAGE}" --registry-config "${PULL_SECRET_FILE}" 2>/dev/null \
+        | awk '/machine-os/ {print $2}')
+    rm -f "${PULL_SECRET_FILE}"
+    if [ -z "${RHCOS_VERSION}" ]; then
+        echo "Error: could not determine the RHCOS version of ${SNO_RELEASE_IMAGE}" >&2
+        exit 1
+    fi
+    echo "RHCOS version for ${TARGET_MINOR}: ${RHCOS_VERSION}"
+
+    # Live ISO and rootfs URLs from the public mirror. The per-release
+    # directory naming differs across streams (4.18.x vs 416.94.x), so
+    # resolve the filenames through the <minor>/latest/ directory listing
+    MIRROR_LATEST="https://mirror.openshift.com/pub/openshift-v4/x86_64/dependencies/rhcos/${TARGET_MINOR}/latest"
+    RHCOS_ISO=$(curl -s "${MIRROR_LATEST}/" | grep -oE 'rhcos-[^"]*live\.x86_64\.iso' | head -1)
+    RHCOS_ROOTFS=$(curl -s "${MIRROR_LATEST}/" | grep -oE 'rhcos-[^"]*live-rootfs\.x86_64\.img' | head -1)
+    if [ -z "${RHCOS_ISO}" ] || [ -z "${RHCOS_ROOTFS}" ]; then
+        echo "Error: could not resolve the RHCOS images for ${TARGET_MINOR} at ${MIRROR_LATEST}" >&2
+        exit 1
+    fi
+    RHCOS_ISO_URL="${MIRROR_LATEST}/${RHCOS_ISO}"
+    RHCOS_ROOTFS_URL="${MIRROR_LATEST}/${RHCOS_ROOTFS}"
+
+    # Add the entry to the AgentServiceConfig, merging with any existing
+    # osImages entries (the patch replaces the list)
+    python3 - "${TARGET_MINOR}" "${RHCOS_VERSION}" "${RHCOS_ISO_URL}" "${RHCOS_ROOTFS_URL}" <<'PYEOF' > /tmp/osimages-patch.json
+import json, subprocess, sys
+minor, version, url, rootfs = sys.argv[1:5]
+asc = json.loads(subprocess.check_output(
+    ["oc", "get", "agentserviceconfig", "agent", "-o", "json"]))
+os_images = asc.get("spec", {}).get("osImages") or []
+if not any(e.get("openshiftVersion") == minor for e in os_images):
+    os_images.append({
+        "openshiftVersion": minor,
+        "cpuArchitecture": "x86_64",
+        "version": version,
+        "url": url,
+        "rootFSUrl": rootfs,
+    })
+print(json.dumps({"spec": {"osImages": os_images}}))
+PYEOF
+    oc patch agentserviceconfig agent --type merge --patch-file /tmp/osimages-patch.json
+    rm -f /tmp/osimages-patch.json
+
+    # Wait for the assisted-service to pick up the new image before the
+    # AgentClusterInstall is synced (otherwise SpecSynced fails with
+    # "No OS images are available for version ...")
+    echo "Waiting for OCP ${TARGET_MINOR} to appear in the assisted OS image list..."
+    timeout 300s bash -c "
+        until oc get configmap assisted-service -n multicluster-engine -o jsonpath='{.data.OS_IMAGES}' 2>/dev/null | grep -q '\"openshift_version\":\"${TARGET_MINOR}\"'; do
+            sleep 10
+        done
+    " || { echo "Error: OCP ${TARGET_MINOR} did not appear in the assisted OS image list within 300s" >&2; exit 1; }
+fi
 
 # 1. Namespace (BMH, InfraEnv, AgentClusterInstall and ClusterDeployment must share it)
 echo "Creating namespace ${NS}..."
