@@ -46,11 +46,11 @@ export SNO_MACHINE_NETWORK="192.168.10.0/24"
 # Node Hardware
 export SNO_ROOT_DEVICE="/dev/sda"              # Or /dev/nvme0n1, etc.
 
-# LVM Storage Configuration
+# LVM Storage Configuration (LVMS_DEVICES only needed for make configure_lvms_cluster)
 # export LVMS_DEVICES="/dev/sdb /dev/sdc"   # Disk(s) for LVM Storage (space-separated)
-# export LVMS_DEVICE_CLASS="openstack"      # StorageClass name will be: lvms-openstack
-# export LVMS_CLUSTER_NAME="lvmcluster"     # LVMCluster resource name
-# export LVMS_NAMESPACE="openshift-storage" # LVMCluster namespace
+export LVMS_DEVICE_CLASS="openstack"        # StorageClass name will be: lvms-openstack
+export LVMS_CLUSTER_NAME="lvmcluster"       # LVMCluster resource name
+export LVMS_NAMESPACE="openshift-storage"   # LVMCluster namespace
 
 # Red Hat Advanced Cluster Management (ACM) Configuration
 # export ACM_VERSION="2.14"                 # ACM version (channel: release-2.14)
@@ -61,9 +61,10 @@ export SNO_ROOT_DEVICE="/dev/sda"              # Or /dev/nvme0n1, etc.
 # networking is required (the full SNO_NODE_* block below).
 # export SNO_SSH_PUBKEY="$(cat ~/.ssh/id_ed25519.pub)"  # SSH public key (optional)
 # export SNO_LABELS="rhoso-version=19"                  # ManagedCluster labels (optional)
-# export SNO_NODE_PREFIX="24"                           # Prefix length
-# export SNO_NODE_GW="192.168.122.1"                    # Gateway
-# export SNO_NODE_DNS="192.168.122.1"                   # DNS server
+export SNO_NODE_PREFIX="24"                             # Prefix length
+export SNO_NODE_GW="192.168.122.1"                      # Gateway
+export SNO_NODE_DNS="192.168.122.1"                     # DNS server
+export SNO_INSTALL_TIMEOUT="5400s"                      # Install wait timeout (oc wait duration)
 
 # Secrets Paths
 export PULL_SECRET="/path/to/pull-secret"

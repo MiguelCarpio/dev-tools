@@ -55,9 +55,18 @@ SNO_LABELS ?=
 SNO_NODE_PREFIX ?=
 SNO_NODE_GW ?=
 SNO_NODE_DNS ?=
+SNO_INSTALL_TIMEOUT ?=
 
 PULL_SECRET ?=
 BMC_CREDENTIALS_FILE ?=
+
+# SNO_RELEASE_IMAGE takes precedence; derive it from OPENSHIFT_VERSION
+# otherwise (exported so the deploy_sno_acm recipe scripts receive it)
+ifeq (,$(SNO_RELEASE_IMAGE))
+ifdef OPENSHIFT_VERSION
+export SNO_RELEASE_IMAGE = quay.io/openshift-release-dev/ocp-release:$(OPENSHIFT_VERSION)-x86_64
+endif
+endif
 
 # LVM Storage Configuration
 LVMS_DEVICES ?=
@@ -124,6 +133,10 @@ check-var-%:
 		if [ "$*" = "ACM_VERSION" ]; then \
 			echo "Hint: list available versions with:"; \
 			echo "  oc get packagemanifest advanced-cluster-management -o jsonpath='{range .status.channels[*]}{.name}{\"\\n\"}{end}' | cut -d- -f2"; \
+		fi; \
+		if [ "$*" = "SNO_RELEASE_IMAGE" ]; then \
+			echo "Hint: set the exact image, or set OPENSHIFT_VERSION (e.g. 4.20.46)"; \
+			echo "  and the release image is derived from it"; \
 		fi; \
 		exit 1; \
 	fi
@@ -438,7 +451,7 @@ endif
 
 # Configure LVMCluster device class with thin provisioning (requires LVMS_DEVICES)
 .PHONY: configure_lvms_cluster
-configure_lvms_cluster: check-var-LVMS_DEVICES ## Configure LVMCluster device class
+configure_lvms_cluster: check-var-LVMS_DEVICES check-var-LVMS_DEVICE_CLASS check-var-LVMS_CLUSTER_NAME check-var-LVMS_NAMESPACE ## Configure LVMCluster device class
 	@echo "Note: LVMS_DEVICES must be wiped disks (no partitions/filesystems)."
 	@echo "To wipe a disk, get the node with 'oc get nodes', then run:"
 	@echo "  oc debug node/<node-name> -- chroot /host wipefs -a <disk>"
@@ -599,7 +612,7 @@ install_acm_operator: check-var-ACM_VERSION check-var-ACM_ASSISTED_STORAGE_CLASS
 # Provision a single-node OpenShift managed cluster via ACM (agent-based
 # installer on the hub). Requires the ACM hub (install_acm_operator).
 .PHONY: deploy_sno_acm
-deploy_sno_acm: check-var-SNO_CLUSTER_NAME check-var-SNO_BASE_DOMAIN check-var-SNO_BMC_HOST check-var-SNO_BMC_USERNAME check-var-SNO_BMC_PASSWORD check-var-SNO_NODE_MAC check-var-SNO_RELEASE_IMAGE check-var-SNO_NODE_IP check-var-SNO_NODE_PREFIX check-var-SNO_NODE_GW check-var-SNO_NODE_DNS check-var-SNO_NODE_IFACE ## Deploy a single-node OpenShift managed cluster via ACM
+deploy_sno_acm: check-var-SNO_CLUSTER_NAME check-var-SNO_BASE_DOMAIN check-var-SNO_BMC_HOST check-var-SNO_BMC_USERNAME check-var-SNO_BMC_PASSWORD check-var-SNO_NODE_MAC check-var-SNO_NODE_IP check-var-SNO_NODE_PREFIX check-var-SNO_NODE_GW check-var-SNO_NODE_DNS check-var-SNO_NODE_IFACE check-var-SNO_ROOT_DEVICE check-var-SNO_INSTALL_TIMEOUT check-var-SNO_RELEASE_IMAGE ## Deploy a single-node OpenShift managed cluster via ACM
 	@echo "Note: the node's disk must be wiped (no partitions/filesystems)."
 	@echo "To wipe it, run:"
 	@echo "  oc debug node/<node-name> -- chroot /host wipefs -a <disk>"

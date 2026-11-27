@@ -2,13 +2,11 @@
 
 set -e
 
-# Required environment variables:
+# Required environment variables (no defaults; see configs/sno.example.sh):
 # - LVMS_DEVICES: Space-separated list of devices (e.g., "/dev/sdb /dev/sdc")
-# - LVMS_DEVICE_CLASS: Device class name (default: openstack)
-
-LVMS_DEVICE_CLASS="${LVMS_DEVICE_CLASS:-openstack}"
-LVMS_CLUSTER_NAME="${LVMS_CLUSTER_NAME:-lvmcluster}"
-LVMS_NAMESPACE="${LVMS_NAMESPACE:-openshift-storage}"
+# - LVMS_DEVICE_CLASS: Device class name
+# - LVMS_CLUSTER_NAME: LVMCluster resource name
+# - LVMS_NAMESPACE: LVMCluster namespace
 
 # Build deviceSelector optionalPaths YAML
 DEVICE_PATHS=""
