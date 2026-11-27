@@ -386,9 +386,9 @@ PYEOF
     oc -n openshift-dns rollout restart daemonset/dns-default
 fi
 
-# 12. Wait for the installation to complete (virtual media boot + discovery + SNO
-# install; this typically takes 30-60 minutes)
-echo "Waiting for the SNO installation to complete (this takes 30-60 minutes)..."
+# 12. Wait for the installation to complete (virtual media boot + discovery
+# and SNO install)
+echo "Waiting for the SNO installation to complete (timeout: ${INSTALL_TIMEOUT})..."
 echo "Progress can be followed with:"
 echo "  oc -n ${NS} get bmh ${NS} -w"
 echo "  oc -n ${NS} get infraenv ${NS} -o jsonpath='{.status.conditions}'"
