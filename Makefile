@@ -611,9 +611,6 @@ install_acm_operator: check-var-ACM_VERSION check-var-ACM_ASSISTED_STORAGE_CLASS
 # installer on the hub). Requires the ACM hub (install_acm_operator).
 .PHONY: deploy_sno_acm
 deploy_sno_acm: check-var-SNO_CLUSTER_NAME check-var-SNO_BASE_DOMAIN check-var-SNO_BMC_HOST check-var-SNO_BMC_USERNAME check-var-SNO_BMC_PASSWORD check-var-SNO_NODE_MAC check-var-SNO_NODE_IP check-var-SNO_NODE_PREFIX check-var-SNO_NODE_GW check-var-SNO_NODE_DNS check-var-SNO_NODE_IFACE check-var-SNO_ROOT_DEVICE check-var-SNO_INSTALL_TIMEOUT check-var-SNO_RELEASE_IMAGE ## Deploy a single-node OpenShift managed cluster via ACM
-	@echo "Note: the node's disk must be wiped (no partitions/filesystems)."
-	@echo "To wipe it, run:"
-	@echo "  oc debug node/<node-name> -- chroot /host wipefs -a <disk>"
 	@echo "Note: use a release image supported by the infrastructure operator"
 	@echo "(see the ACM support matrix)."
 	@bash scripts/deploy_sno_acm.sh
